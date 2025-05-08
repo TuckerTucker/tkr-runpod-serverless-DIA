@@ -1,0 +1,4 @@
+requests>=2.28.0
+python-dotenv>=0.20.0
+numpy>=1.20.0
+soundfile>=0.10.3

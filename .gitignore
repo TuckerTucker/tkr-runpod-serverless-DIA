@@ -1,0 +1,14 @@
+# Tucker
+_project
+
+
+# Environment
+**/.claude
+.env
+dia-tts-runpod-env
+test.wav
+
+# Python 
+**/__pycache__/
+*.py[cod]
+*$py.class

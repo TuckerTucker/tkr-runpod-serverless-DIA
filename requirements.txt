@@ -1,0 +1,8 @@
+# Dia TTS RunPod Serverless Management Requirements
+
+# API and HTTP (needed for deployment and management)
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# For serverless container, see serverless/requirements.txt
+# For inference/TTS functionality, see inference/requirements.txt
