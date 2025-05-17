@@ -21,9 +21,22 @@ logger = logging.getLogger("dia-tts-handler")
 # Global model instance (loaded once per container)
 model = None
 
-def load_model():
+def load_model(force_refresh=False):
     global model
-    if model is None:
+    if model is None or force_refresh:
+        if force_refresh and model is not None:
+            logger.info("Force refreshing model from Hugging Face...")
+            # Delete the old model reference to free up memory
+            del model
+            model = None
+            # Force garbage collection to release memory
+            import gc
+            gc.collect()
+            # Clear torch CUDA cache
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                logger.info("CUDA cache cleared")
+        
         # Check for HF token in RunPod secrets
         try:
             secrets_json = os.environ.get("RUNPOD_SECRETS", "{}")
@@ -49,8 +62,27 @@ def load_model():
         model_id = os.environ.get("MODEL_ID", "nari-labs/Dia-1.6B")
         compute_dtype = os.environ.get("COMPUTE_DTYPE", "float16")
         
-        logger.info(f"Loading {model_id} model with compute_dtype={compute_dtype}...")
-        # Load the model with specified parameters
+        # Handle cache behavior for model refreshing
+        if force_refresh:
+            logger.info(f"Loading {model_id} model with cache disabled (force_refresh=True)...")
+            # Configure HuggingFace environment to bypass cache
+            os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "1"  # Disable cached token
+            os.environ["TRANSFORMERS_OFFLINE"] = "0"  # Ensure online mode
+            os.environ["HF_HOME"] = "/tmp/hf_temp_nocache"  # Use a temporary directory
+            
+            # Clear any existing temp directory
+            if os.path.exists("/tmp/hf_temp_nocache"):
+                import shutil
+                try:
+                    shutil.rmtree("/tmp/hf_temp_nocache")
+                    os.makedirs("/tmp/hf_temp_nocache", exist_ok=True)
+                    logger.info("Cleared temporary cache directory")
+                except Exception as e:
+                    logger.warning(f"Failed to clear temp directory: {e}")
+        else:
+            logger.info(f"Loading {model_id} model with cache enabled...")
+            
+        # Load the model with specified parameters - don't pass extra params to Dia.from_pretrained
         model = Dia.from_pretrained(model_id, compute_dtype=compute_dtype)
         logger.info("Model loaded successfully!")
         
@@ -81,11 +113,24 @@ def check_and_configure_cache_dirs():
 
 def handler(event):
     global model
+    
+    # Get input data from the request
+    input_data = event.get("input", {})
+    
+    # Check for admin commands
+    if input_data.get("command") == "refresh_model":
+        logger.info("Received model refresh command")
+        model = load_model(force_refresh=True)
+        return {
+            "status": "success",
+            "message": "Model refreshed from Hugging Face Hub"
+        }
+    
+    # Normal model loading if not already loaded
     if model is None:
         model = load_model()
     
     # Get input text from the request
-    input_data = event.get("input", {})
     text = input_data.get("text", "")
     
     if not text:
@@ -97,6 +142,12 @@ def handler(event):
     seed = input_data.get("seed")
     temperature = input_data.get("temperature", float(os.environ.get("DEFAULT_TEMPERATURE", 1.3)))
     top_p = input_data.get("top_p", float(os.environ.get("DEFAULT_TOP_P", 0.95)))
+    force_model_refresh = input_data.get("force_refresh", False)
+    
+    # Check if we need to refresh the model for this request
+    if force_model_refresh:
+        logger.info("Request specified model refresh")
+        model = load_model(force_refresh=True)
     
     if audio_prompt_b64:
         # Decode base64 audio prompt

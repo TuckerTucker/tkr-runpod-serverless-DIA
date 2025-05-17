@@ -44,7 +44,7 @@ class DiaTTSClient:
         }
     
     def generate_speech(self, text, temperature=1.3, top_p=0.95, seed=None, audio_prompt=None, 
-                         save_path=None, polling_interval=2, timeout=300):
+                         save_path=None, polling_interval=2, timeout=300, force_refresh=False):
         """
         Generate speech from text using Dia-1.6B model
         
@@ -57,6 +57,7 @@ class DiaTTSClient:
             save_path (str, optional): Path to save the audio file. Defaults to "output.wav".
             polling_interval (int, optional): Seconds between status checks. Defaults to 2.
             timeout (int, optional): Maximum time to wait for result in seconds. Defaults to 300.
+            force_refresh (bool, optional): Force the model to be refreshed from Hugging Face. Defaults to False.
         
         Returns:
             tuple: (success, result) where result is either the audio data or error message
@@ -73,6 +74,10 @@ class DiaTTSClient:
         # Add optional parameters if provided
         if seed is not None:
             payload["input"]["seed"] = seed
+            
+        # Add force refresh flag if set
+        if force_refresh:
+            payload["input"]["force_refresh"] = True
         
         # Handle audio prompt for voice cloning
         if audio_prompt:

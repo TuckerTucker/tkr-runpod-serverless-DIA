@@ -27,6 +27,80 @@ def show_banner():
     """
     print(banner)
 
+def admin_refresh_model(args):
+    """Send a command to refresh the model without generating speech"""
+    import requests
+    from config.api_config import RUNPOD_API_KEY, ENDPOINT_ID, get_endpoint_url
+    
+    endpoint_id = args.endpoint_id or ENDPOINT_ID
+    api_key = args.api_key or RUNPOD_API_KEY
+    
+    if not endpoint_id:
+        print("Error: No endpoint ID provided")
+        return 1
+    
+    base_url = get_endpoint_url(endpoint_id)
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Prepare admin command payload
+    payload = {
+        "input": {
+            "command": "refresh_model"
+        }
+    }
+    
+    try:
+        print(f"Sending model refresh command to endpoint {endpoint_id}...")
+        response = requests.post(f"{base_url}/run", headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        job_id = result.get("id")
+        
+        if not job_id:
+            print(f"Failed to submit refresh command: {result}")
+            return 1
+        
+        print(f"Command submitted with job ID: {job_id}")
+        print("Waiting for command to complete...")
+        
+        # Poll for result
+        polling_interval = 2
+        timeout = 60
+        start_time = time.time()
+        
+        while True:
+            if time.time() - start_time > timeout:
+                print(f"Command timed out after {timeout} seconds")
+                return 1
+            
+            status_response = requests.get(f"{base_url}/status/{job_id}", headers=headers)
+            status_data = status_response.json()
+            status = status_data.get("status")
+            
+            if status == "COMPLETED":
+                output = status_data.get("output", {})
+                if output.get("status") == "success":
+                    print(f"Model refresh successful: {output.get('message', 'Model refreshed')}")
+                    return 0
+                else:
+                    print(f"Model refresh failed: {output}")
+                    return 1
+            
+            elif status in ["FAILED", "CANCELLED"]:
+                error = status_data.get("error", "Unknown error")
+                print(f"Command {status.lower()}: {error}")
+                return 1
+            
+            time.sleep(polling_interval)
+            
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return 1
+
 def main():
     """Main entry point for the CLI"""
     show_banner()
@@ -50,14 +124,11 @@ def main():
     parser.add_argument("--audio-prompt", "-a", type=str, help="Path to reference audio for voice cloning")
     parser.add_argument("--stream", action="store_true", help="Stream audio output")
     parser.add_argument("--status", action="store_true", help="Check endpoint status instead of generating speech")
+    parser.add_argument("--refresh-model", action="store_true", help="Force the model to refresh from Hugging Face")
+    parser.add_argument("--admin-refresh", action="store_true", help="Admin command to refresh the model without generating speech")
     
     # Parse arguments
     args = parser.parse_args()
-    
-    # If no text is specified and not checking status, show help
-    if not args.text and not args.status:
-        parser.print_help()
-        return 0
     
     # Validate API configuration
     is_valid, message = validate_api_config()
@@ -69,6 +140,15 @@ def main():
     # Check endpoint status if requested
     if args.status:
         return check_status(args)
+    
+    # Admin refresh command takes precedence
+    if args.admin_refresh:
+        return admin_refresh_model(args)
+    
+    # If no text is specified and not checking status or doing admin refresh, show help
+    if not args.text:
+        parser.print_help()
+        return 0
     
     # Generate speech
     return generate_speech(args)
@@ -193,6 +273,8 @@ def generate_speech(args):
         print(f"Generating speech for text: '{args.text}'")
         if args.audio_prompt:
             print(f"Using voice reference from: {args.audio_prompt}")
+        if args.refresh_model:
+            print("Model will be refreshed from Hugging Face")
         
         # Prepare parameters
         params = {
@@ -212,6 +294,9 @@ def generate_speech(args):
         
         if args.audio_prompt:
             params['audio_prompt'] = args.audio_prompt
+        
+        if args.refresh_model:
+            params['force_refresh'] = True
         
         # Generate speech
         if args.stream:

@@ -19,7 +19,7 @@ if [ -z "$RUNPOD_API_KEY" ]; then
 fi
 
 # Parse command line arguments
-TEMPLATE_ID=""
+TEMPLATE_ID="${TEMPLATE_ID:-}"  # Use TEMPLATE_ID from .env if it exists
 ENDPOINT_NAME="Dia-1.6B-Endpoint"
 MIN_WORKERS=0
 MAX_WORKERS=3
