@@ -13,17 +13,30 @@ RUN apt-get update && \
     wget \
     ffmpeg \
     libsndfile1 \
+    sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
-RUN useradd -m -u 1000 user
+# Create runpod directories for network volume detection
+RUN mkdir -p /data /runpod-volume /mnt/networkvolume /mnt/data /volume /mnt/network-volume /mnt/runpod-volume
+
+# Create a non-root user with sudo privileges to help with volume access
+RUN useradd -m -u 1000 user && \
+    echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user && \
+    chmod 0440 /etc/sudoers.d/user
+
+# Create cache directories in standard locations and ensure they're accessible
+RUN mkdir -p /data/hf_cache /data/torch_cache /runpod-volume/hf_cache /runpod-volume/torch_cache && \
+    chown -R 1000:1000 /data /runpod-volume /mnt/networkvolume /mnt/data /volume /mnt/network-volume /mnt/runpod-volume
+
+# Switch to user
 USER user
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH
 WORKDIR /home/user
 
-# Set up cache directories
+# Set up cache directories with fallback mechanism
+# These will be overridden by the handler if a network volume is found
 ENV HF_HOME=/home/user/hf_cache \
     TRANSFORMERS_CACHE=/home/user/hf_cache \
     TORCH_HOME=/home/user/torch_cache \
@@ -31,7 +44,8 @@ ENV HF_HOME=/home/user/hf_cache \
     COMPUTE_DTYPE="float16" \
     DEFAULT_TEMPERATURE="1.3" \
     DEFAULT_TOP_P="0.95" \
-    DEFAULT_SEED="42"
+    DEFAULT_SEED="42" \
+    VOLUME_SEARCH_PATHS="/data:/runpod-volume:/mnt/networkvolume:/mnt/data:/volume"
 RUN mkdir -p /home/user/hf_cache /home/user/torch_cache
 
 # Copy requirements first for better layer caching

@@ -310,14 +310,36 @@ echo -e "Template ID: ${GREEN}$TEMPLATE_ID${NC}"
 
 # Save template ID to .env file
 if [ -f "$PROJECT_ROOT/.env" ]; then
-    if grep -q "TEMPLATE_ID=" "$PROJECT_ROOT/.env"; then
-        # Update existing TEMPLATE_ID
-        sed -i.bak "s/TEMPLATE_ID=.*/TEMPLATE_ID=$TEMPLATE_ID/" "$PROJECT_ROOT/.env"
-        rm -f "$PROJECT_ROOT/.env.bak" # Remove backup file
-    else
-        # Add TEMPLATE_ID if it doesn't exist
-        echo "TEMPLATE_ID=$TEMPLATE_ID" >> "$PROJECT_ROOT/.env"
+    # Create a temporary file for the updated content
+    TEMP_ENV_FILE=$(mktemp)
+    
+    # Flag to track if we've found and updated the TEMPLATE_ID line
+    TEMPLATE_ID_UPDATED=false
+    
+    # Process the .env file line by line
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ "$line" =~ ^TEMPLATE_ID=.* ]]; then
+            # Replace the existing TEMPLATE_ID line
+            echo "TEMPLATE_ID=$TEMPLATE_ID" >> "$TEMP_ENV_FILE"
+            TEMPLATE_ID_UPDATED=true
+        else
+            # Keep the line as is
+            echo "$line" >> "$TEMP_ENV_FILE"
+        fi
+    done < "$PROJECT_ROOT/.env"
+    
+    # If TEMPLATE_ID wasn't found, add it to the end
+    if [ "$TEMPLATE_ID_UPDATED" = false ]; then
+        # Make sure there's a newline at the end
+        if [ -s "$TEMP_ENV_FILE" ] && [ "$(tail -c 1 "$TEMP_ENV_FILE" | wc -l)" -eq 0 ]; then
+            echo "" >> "$TEMP_ENV_FILE"
+        fi
+        echo "TEMPLATE_ID=$TEMPLATE_ID" >> "$TEMP_ENV_FILE"
     fi
+    
+    # Replace the original .env file with our updated version
+    mv "$TEMP_ENV_FILE" "$PROJECT_ROOT/.env"
+    
     echo -e "Template ID saved to .env file."
 fi
 

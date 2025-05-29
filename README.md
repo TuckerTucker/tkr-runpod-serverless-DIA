@@ -304,6 +304,7 @@ This project is organized into two main components:
   - `create_template.sh`: Script for creating RunPod template
   - `deploy.sh`: One-command deployment
   - `monitor.sh`: Simple monitoring script
+  - `README.md`: Documentation for script usage and options
 - **USAGE.md**: Detailed usage examples for both CLIs
 
 ### 2. Inference Component (Standalone Package)

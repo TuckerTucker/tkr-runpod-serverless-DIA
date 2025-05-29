@@ -5,10 +5,18 @@ import os
 from pathlib import Path
 
 # Load environment variables from .env file if it exists
+from dotenv import load_dotenv
+
+# First, try the .env in the inference package directory
 env_path = Path(__file__).resolve().parent.parent / '.env'
 if env_path.exists():
-    from dotenv import load_dotenv
     load_dotenv(dotenv_path=str(env_path))
+    
+# If keys aren't set, try the root directory .env
+if not os.environ.get('RUNPOD_API_KEY') or not os.environ.get('ENDPOINT_ID'):
+    root_env_path = Path(__file__).resolve().parent.parent.parent / '.env'
+    if root_env_path.exists():
+        load_dotenv(dotenv_path=str(root_env_path))
 
 # RunPod API key (required for making API calls)
 RUNPOD_API_KEY = os.environ.get('RUNPOD_API_KEY', '')

@@ -207,6 +207,16 @@ def main():
         "DEFAULT_SEED": "42"
     }
     
+    # Get volume ID from args or environment
+    volume_id = args.volume_id or os.environ.get("NETWORK_VOLUME_ID")
+    volume_mount_path = args.volume_path if volume_id else None
+    
+    # Add network volume ID to env vars if provided
+    if volume_id:
+        env_vars["NETWORK_VOLUME_ID"] = volume_id
+        # Also add the expected mount path to help handler find it
+        env_vars["VOLUME_MOUNT_PATH"] = volume_mount_path
+    
     # Secrets to set
     secrets = {}
     if args.hf_token:
@@ -219,10 +229,11 @@ def main():
         else:
             print("Warning: No Hugging Face token provided. Model downloads may fail.")
             print("Please provide a token with --hf-token or set HUGGINGFACE_TOKEN environment variable.")
-    
-    # Get volume ID from args or environment
-    volume_id = args.volume_id or os.environ.get("NETWORK_VOLUME_ID")
-    volume_mount_path = args.volume_path if volume_id else None
+            
+    # Also add the network volume ID to secrets to ensure it's available
+    if volume_id:
+        secrets["NETWORK_VOLUME_ID"] = volume_id
+        secrets["VOLUME_MOUNT_PATH"] = volume_mount_path
     
     if volume_id:
         print(f"Using network volume: {volume_id}")

@@ -31,7 +31,7 @@ def main():
     print(f"Generating speech for: '{text}'")
     success, result = client.generate_speech(
         text=text,
-        temperature=1.3,  # Adjust for more/less variation
+        temperature=0.5,  # Adjust for more/less variation
         top_p=0.95,       # Controls randomness
         save_path="output.wav"
     )

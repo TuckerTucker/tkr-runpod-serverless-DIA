@@ -371,6 +371,7 @@ def delete_endpoint(args):
         print(f"Failed to delete endpoint {endpoint_id}.")
         return 1
 
+
 def delete_template(args):
     """Delete a serverless template"""
     # Import here to handle module not found errors gracefully
